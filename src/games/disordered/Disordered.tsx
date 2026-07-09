@@ -76,6 +76,9 @@ export default function Disordered({ socket, me, members, game }: GameProps) {
   const [history, setHistory] = useState<GuessRow[]>([]);
   const [solved, setSolved] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [shakingRowIdx, setShakingRowIdx] = useState<number | null>(null);
+  const [shakeBtn, setShakeBtn] = useState(false);
+  const shakeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Reset the board + history whenever a new round begins.
   useEffect(() => {
@@ -241,6 +244,21 @@ export default function Disordered({ socket, me, members, game }: GameProps) {
 
   function submit() {
     if (solved || board.length !== n) return;
+    const dup = history.findIndex((r) => r.order.join(",") === board.join(","));
+    if (dup >= 0) {
+      if (shakeTimerRef.current) clearTimeout(shakeTimerRef.current);
+      setShakingRowIdx(null);
+      setShakeBtn(false);
+      requestAnimationFrame(() => {
+        setShakingRowIdx(dup);
+        setShakeBtn(true);
+        shakeTimerRef.current = setTimeout(() => {
+          setShakingRowIdx(null);
+          setShakeBtn(false);
+        }, 600);
+      });
+      return;
+    }
     socket.emit("disordered:guess", { order: board });
   }
 
@@ -370,12 +388,17 @@ export default function Disordered({ socket, me, members, game }: GameProps) {
         )}
 
         {!solved && (
-          <button
-            onClick={submit}
-            className="rounded-2xl bg-gradient-to-br from-sky-500 to-violet-500 px-8 py-3 text-lg font-black uppercase tracking-wide shadow-lg transition hover:scale-105 active:scale-95"
-          >
-            Submit guess
-          </button>
+          <div>
+            <button
+              onClick={submit}
+              className={`rounded-2xl bg-gradient-to-br from-sky-500 to-violet-500 px-8 py-3 text-lg font-black uppercase tracking-wide shadow-lg transition hover:scale-105 active:scale-95${shakeBtn ? " animate-shake" : ""}`}
+            >
+              Submit guess
+            </button>
+            {shakeBtn && (
+              <p className="mt-2 text-sm font-semibold text-red-400">Already guessed!</p>
+            )}
+          </div>
         )}
 
         {solved && (
@@ -415,7 +438,7 @@ export default function Disordered({ socket, me, members, game }: GameProps) {
               {history.map((row, idx) => (
                 <li
                   key={idx}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2"
+                  className={`flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2${shakingRowIdx === idx ? " animate-shake" : ""}`}
                 >
                   <span className="flex gap-1 text-2xl">
                     {row.order.map((e, i) => (

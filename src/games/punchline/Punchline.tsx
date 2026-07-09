@@ -15,6 +15,7 @@ interface PunchlineState {
   round?: number;
   prompt?: string | null;
   answered?: string[];
+  skipped?: string[];
   voted?: string[];
   gallery?: { aid: string; text: string }[] | null;
   reveals?: { aid: string; text: string; name: string; votes: number }[] | null;
@@ -31,6 +32,7 @@ export default function Punchline({ socket, me, members, game }: GameProps) {
   const myKey = nameKey(me?.name);
   const isHost = !!me && g.hostId === me.id;
   const hasAnswered = (g.answered ?? []).includes(myKey);
+  const hasSkipped = (g.skipped ?? []).includes(myKey);
   const hasVoted = (g.voted ?? []).includes(myKey);
 
   const [answerInput, setAnswerInput] = useState("");
@@ -147,7 +149,15 @@ export default function Punchline({ socket, me, members, game }: GameProps) {
             >
               Lock
             </button>
+            <button
+              onClick={() => socket.emit("pl:skip")}
+              className="rounded-xl bg-white/5 px-4 py-3 text-sm text-violet-100/40 transition hover:bg-white/10 hover:text-violet-100/60"
+            >
+              Skip
+            </button>
           </div>
+        ) : hasSkipped ? (
+          <p className="text-center text-violet-100/40">⏭️ Skipped. Waiting for everyone else…</p>
         ) : (
           <p className="text-center text-violet-100/60">✅ Locked in. Waiting on the slow typers…</p>
         )}

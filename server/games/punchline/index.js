@@ -59,6 +59,7 @@ function startRound(room) {
   g.round += 1;
   g.prompt = PROMPTS[pick];
   g.answered = [];
+  g.skipped = [];
   g.voted = [];
   g.gallery = null;
   g.reveals = null;
@@ -102,7 +103,7 @@ function maybeAdvanceWrite(room) {
   if (g.phase !== "write") return;
   const present = [...presentKeys(room)];
   const answers = Object.keys(room.private.answers);
-  if (answers.length >= 2 && present.every((k) => k in room.private.answers)) {
+  if (answers.length >= 2 && present.every((k) => k in room.private.answers || (g.skipped ?? []).includes(k))) {
     buildVote(room);
   }
 }
@@ -146,6 +147,17 @@ function register(io, socket, { room, broadcastState }) {
     broadcastState();
   });
 
+  socket.on("pl:skip", () => {
+    if (g.phase !== "write") return;
+    const key = myKey();
+    if (!key || key in room.private.answers || (g.skipped ?? []).includes(key)) return;
+    if (!g.skipped) g.skipped = [];
+    g.skipped.push(key);
+    g.answered.push(key); // marks them as done in the "waiting on" list
+    maybeAdvanceWrite(room);
+    broadcastState();
+  });
+
   socket.on("pl:vote", ({ aid } = {}) => {
     if (g.phase !== "vote") return;
     const key = myKey();
@@ -183,6 +195,7 @@ function register(io, socket, { room, broadcastState }) {
     g.round = 0;
     g.prompt = null;
     g.answered = [];
+    g.skipped = [];
     g.voted = [];
     g.gallery = null;
     g.reveals = null;
