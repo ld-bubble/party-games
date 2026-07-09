@@ -90,6 +90,21 @@ export default function Home() {
       <footer className="mt-16 text-center text-sm text-violet-100/30">
         An open-source real-time multiplayer games starter
       </footer>
+
+      <div className="fixed top-4 right-4 flex gap-2 z-50">
+        <button
+          onClick={() => console.error("Demo error", new Error("This is a demo console error"))}
+          className="rounded-lg bg-red-500/20 border border-red-400/30 px-3 py-1.5 text-sm font-medium text-red-300 hover:bg-red-500/30 transition"
+        >
+          Demo error
+        </button>
+        <button
+          onClick={() => fetch("/demo-network-error")}
+          className="rounded-lg bg-red-500/20 border border-red-400/30 px-3 py-1.5 text-sm font-medium text-red-300 hover:bg-red-500/30 transition"
+        >
+          Demo network error
+        </button>
+      </div>
     </main>
   );
 }
