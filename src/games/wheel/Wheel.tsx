@@ -110,12 +110,12 @@ export default function Wheel({ socket, me, members, game }: GameProps) {
             return (
               <div
                 key={m.id}
-                className="absolute left-1/2 top-1/2 origin-left"
+                className="absolute left-1/2 top-1/2 origin-left w-[120px]"
                 style={{
-                  transform: `rotate(${center}deg) translateX(8px)`,
+                  transform: `rotate(${center}deg) translateX(28px)`,
                 }}
               >
-                <span className="block max-w-[150px] truncate text-sm font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
+                <span className="block truncate text-right text-sm font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
                   {m.name}
                 </span>
               </div>
