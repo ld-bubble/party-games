@@ -60,6 +60,9 @@ export default function Wheel({ socket, me, members, game }: GameProps) {
   const customEntries = Array.isArray(game.customEntries)
     ? (game.customEntries as { id: string; name: string }[])
     : [];
+  const selectionHistory = Array.isArray(game.selectionHistory)
+    ? (game.selectionHistory as { id: string; name: string }[])
+    : [];
   const entries: { id: string; name: string }[] = [...members, ...customEntries];
 
   const n = entries.length;
@@ -194,6 +197,28 @@ export default function Wheel({ socket, me, members, game }: GameProps) {
           </ul>
         )}
       </div>
+
+      {/* Selection history ledger */}
+      {selectionHistory.length > 0 && (
+        <div className="w-full max-w-sm rounded-xl border border-white/10 bg-white/5 p-4">
+          <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-violet-100/50">
+            Selected
+          </p>
+          <ol className="flex flex-col gap-1">
+            {selectionHistory.map((entry, i) => (
+              <li
+                key={`${entry.id}-${i}`}
+                className="flex items-center gap-2 rounded-lg bg-white/5 px-3 py-1.5 text-sm"
+              >
+                <span className="w-5 shrink-0 text-right text-violet-100/30 text-xs">
+                  {i + 1}
+                </span>
+                <span className="font-medium">{entry.name}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
     </div>
   );
 }

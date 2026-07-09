@@ -9,6 +9,7 @@ function init(room) {
   if (typeof room.game.spinning !== "boolean") room.game.spinning = false;
   if (!("winner" in room.game)) room.game.winner = null;
   if (!Array.isArray(room.game.customEntries)) room.game.customEntries = [];
+  if (!Array.isArray(room.game.selectionHistory)) room.game.selectionHistory = [];
 }
 
 function register(io, socket, { room, broadcastState }) {
@@ -47,6 +48,7 @@ function register(io, socket, { room, broadcastState }) {
       if (!room.members) return;
       room.game.spinning = false;
       room.game.winner = winner;
+      room.game.selectionHistory.unshift({ id: winner.id, name: winner.name });
       io.to(room.code).emit("wheel:result", { winner });
       io.to(room.code).emit("room:state", {
         code: room.code,
