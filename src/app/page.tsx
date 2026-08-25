@@ -1,23 +1,33 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { GAMES } from "@/games/catalog";
 import { makeRoomCode } from "@/lib/code";
+import { track } from "@/lib/analytics";
 
 export default function Home() {
   const router = useRouter();
   const [joinCode, setJoinCode] = useState("");
 
+  useEffect(() => {
+    track("lobby_viewed");
+  }, []);
+
   function startGame(gameId: string) {
     const code = makeRoomCode();
+    const gameMeta = GAMES.find((g) => g.id === gameId);
+    track("game_started", { game_id: gameId, game_name: gameMeta?.name, room_code: code });
     router.push(`/room/${code}?game=${gameId}`);
   }
 
   function joinRoom(e: React.FormEvent) {
     e.preventDefault();
     const code = joinCode.trim().toUpperCase();
-    if (code.length >= 3) router.push(`/room/${code}`);
+    if (code.length >= 3) {
+      track("room_join_attempted", { room_code: code });
+      router.push(`/room/${code}`);
+    }
   }
 
   return (
@@ -58,7 +68,11 @@ export default function Home() {
             <button
               key={game.id}
               disabled={!live}
-              onClick={() => live && startGame(game.id)}
+              onClick={() => {
+                if (!live) return;
+                track("game_card_clicked", { game_id: game.id, game_name: game.name });
+                startGame(game.id);
+              }}
               className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-6 text-left transition enabled:hover:-translate-y-1 enabled:hover:border-white/20 enabled:hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <div

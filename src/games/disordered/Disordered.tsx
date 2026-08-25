@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { GameProps } from "../registry";
 import type { Member } from "@/lib/socket";
 import { playSwap, playFanfare } from "@/lib/sounds";
+import { track } from "@/lib/analytics";
 
 interface PlayerProgress {
   attempts: number;
@@ -76,6 +77,7 @@ export default function Disordered({ socket, me, members, game }: GameProps) {
   const [history, setHistory] = useState<GuessRow[]>([]);
   const [solved, setSolved] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const prevPhase = useRef(phase);
 
   // Reset the board + history whenever a new round begins.
   useEffect(() => {
@@ -97,7 +99,11 @@ export default function Disordered({ socket, me, members, game }: GameProps) {
       correct: number;
       solved: boolean;
     }) {
-      setHistory((h) => [{ order: p.order, correct: p.correct }, ...h]);
+      setHistory((h) => {
+        const next = [{ order: p.order, correct: p.correct }, ...h];
+        if (p.solved) track("disordered_puzzle_solved", { attempts: next.length });
+        return next;
+      });
       if (p.solved) setSolved(true);
     }
     function onSolved(p: { id: string }) {
@@ -119,6 +125,18 @@ export default function Disordered({ socket, me, members, game }: GameProps) {
   useEffect(() => {
     if (solved) playFanfare();
   }, [solved]);
+
+  useEffect(() => {
+    if (prevPhase.current !== phase) {
+      if (phase === "playing") {
+        track("disordered_round_started", { player_count: members.length });
+      }
+      if (phase === "revealed") {
+        track("disordered_round_revealed");
+      }
+      prevPhase.current = phase;
+    }
+  }, [phase, members.length]);
 
   const leaderboard = useMemo(() => {
     return members
@@ -241,6 +259,7 @@ export default function Disordered({ socket, me, members, game }: GameProps) {
 
   function submit() {
     if (solved || board.length !== n) return;
+    track("disordered_guess_submitted", { attempt: history.length + 1 });
     socket.emit("disordered:guess", { order: board });
   }
 

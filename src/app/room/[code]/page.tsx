@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { getSocket, type Member, type RoomState } from "@/lib/socket";
+import { track } from "@/lib/analytics";
 import { getGameMeta } from "@/games/catalog";
 import { GAME_COMPONENTS } from "@/games/registry";
 
@@ -19,6 +20,7 @@ export default function RoomPage({ params }: { params: { code: string } }) {
   const [state, setState] = useState<RoomState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const didJoin = useRef(false);
 
   // Load any remembered name on first paint.
   useEffect(() => {
@@ -59,16 +61,31 @@ export default function RoomPage({ params }: { params: { code: string } }) {
     return state?.members.find((m) => m.id === socket.id) || null;
   }, [state]);
 
+  useEffect(() => {
+    if (state && !didJoin.current) {
+      didJoin.current = true;
+      track("player_joined", {
+        room_code: code,
+        game_id: state.gameId,
+        player_count: state.members.length,
+        is_host: me?.id === (state.game as { hostId?: string | null }).hostId,
+      });
+    }
+  }, [state, code, me]);
+
   function submitName(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = nameInput.trim();
     if (!trimmed) return;
+    const firstTime = !localStorage.getItem(NAME_KEY);
+    track("player_name_entered", { room_code: code, first_time: firstTime });
     localStorage.setItem(NAME_KEY, trimmed);
     setName(trimmed);
   }
 
   function copyLink() {
     navigator.clipboard.writeText(window.location.origin + `/room/${code}`);
+    track("room_code_copied", { room_code: code, game_id: state?.gameId });
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   }

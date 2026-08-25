@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { GameProps } from "../registry";
 import { playCorrect, playWrong, playFanfare } from "@/lib/sounds";
+import { track } from "@/lib/analytics";
 
 interface TPlayer {
   name: string;
@@ -54,9 +55,19 @@ export default function TwoTruths({ socket, me, members, game }: GameProps) {
       }
       if (phase === "gameover") playFanfare();
       if (phase === "guess") setMyChoice(null);
+      if (phase === "collect" && prevPhase.current === "gameover") {
+        track("two_truths_game_started", { player_count: Object.keys(players).length });
+      }
+      if (phase === "reveal") {
+        track("two_truths_round_reveal", { fooled: g.reveal?.fooled, round_idx: g.roundIdx });
+      }
+      if (phase === "gameover") {
+        const winner = Object.entries(players).sort((a, b) => b[1].score - a[1].score)[0]?.[1]?.name;
+        track("two_truths_game_completed", { winner });
+      }
       prevPhase.current = phase;
     }
-  }, [phase, myChoice, g.reveal]);
+  }, [phase, myChoice, g.reveal, players, g.roundIdx]);
 
   const playerList = Object.entries(players)
     .map(([key, p]) => ({ key, ...p }))
@@ -128,7 +139,10 @@ export default function TwoTruths({ socket, me, members, game }: GameProps) {
             ))}
             <button
               disabled={statements.some((s) => !s.trim()) || lieIndex === null}
-              onClick={() => socket.emit("tt:submit", { statements, lieIndex })}
+              onClick={() => {
+                track("two_truths_statements_submitted");
+                socket.emit("tt:submit", { statements, lieIndex });
+              }}
               className="mt-2 rounded-2xl bg-gradient-to-br from-orange-500 to-rose-500 px-8 py-3 font-black uppercase tracking-wide transition enabled:hover:scale-[1.02] disabled:opacity-40"
             >
               Lock it in
@@ -190,6 +204,7 @@ export default function TwoTruths({ socket, me, members, game }: GameProps) {
                 disabled={phase !== "guess" || isFeatured || hasVoted}
                 onClick={() => {
                   setMyChoice(i);
+                  track("two_truths_vote_cast");
                   socket.emit("tt:vote", { choice: i });
                 }}
                 className={`rounded-2xl border-2 p-4 text-left transition ${

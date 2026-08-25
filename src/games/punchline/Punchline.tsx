@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { GameProps } from "../registry";
 import { playCorrect, playFanfare } from "@/lib/sounds";
+import { track } from "@/lib/analytics";
 
 interface PPlayer {
   name: string;
@@ -44,15 +45,26 @@ export default function Punchline({ socket, me, members, game }: GameProps) {
         setAnswerInput("");
         setMyAnswer(null);
         setMyVote(null);
+        track("punchline_round_started", { round: g.round });
+      }
+      if (phase === "vote") {
+        track("punchline_voting_started", { round: g.round, answer_count: g.gallery?.length });
       }
       if (phase === "results") {
         const mine = g.reveals?.find((r) => r.text === myAnswer);
         if (mine && mine.votes > 0) playCorrect();
+        track("punchline_results_shown", { round: g.round, top_votes: g.reveals?.[0]?.votes });
       }
-      if (phase === "gameover") playFanfare();
+      if (phase === "gameover") {
+        playFanfare();
+        const sorted = Object.entries(players)
+          .map(([key, p]) => ({ key, ...p }))
+          .sort((a, b) => b.score - a.score);
+        track("punchline_game_completed", { winner: sorted[0]?.name, player_count: sorted.length });
+      }
       prevPhase.current = phase;
     }
-  }, [phase, g.reveals, myAnswer]);
+  }, [phase, g.reveals, myAnswer, g.round, g.gallery, players]);
 
   const playerList = Object.entries(players)
     .map(([key, p]) => ({ key, ...p }))
@@ -129,6 +141,7 @@ export default function Punchline({ socket, me, members, game }: GameProps) {
               onChange={(e) => setAnswerInput(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && answerInput.trim()) {
+                  track("punchline_answer_submitted", { round: g.round, char_count: answerInput.trim().length });
                   setMyAnswer(answerInput.trim());
                   socket.emit("pl:answer", { text: answerInput });
                 }
@@ -140,6 +153,7 @@ export default function Punchline({ socket, me, members, game }: GameProps) {
             <button
               disabled={!answerInput.trim()}
               onClick={() => {
+                track("punchline_answer_submitted", { round: g.round, char_count: answerInput.trim().length });
                 setMyAnswer(answerInput.trim());
                 socket.emit("pl:answer", { text: answerInput });
               }}
@@ -191,6 +205,10 @@ export default function Punchline({ socket, me, members, game }: GameProps) {
                 disabled={hasVoted || isMine}
                 onClick={() => {
                   setMyVote(aid);
+                  track("punchline_vote_cast", {
+                    round: g.round,
+                    voted_own: g.gallery?.find((a) => a.text === myAnswer)?.aid === aid,
+                  });
                   socket.emit("pl:vote", { aid });
                 }}
                 className={`rounded-2xl border-2 p-4 text-left text-lg font-semibold leading-snug transition ${

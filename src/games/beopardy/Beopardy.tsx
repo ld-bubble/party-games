@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { GameProps } from "../registry";
 import { playBuzz, playCorrect, playWrong, playFanfare } from "@/lib/sounds";
+import { track } from "@/lib/analytics";
 
 interface BPlayer {
   name: string;
@@ -76,6 +77,7 @@ export default function Beopardy({ socket, me, members, game }: GameProps) {
   const [finalWagerInput, setFinalWagerInput] = useState("");
   const [finalAnswerInput, setFinalAnswerInput] = useState("");
   const [remaining, setRemaining] = useState(60);
+  const prevPhase = useRef(phase);
 
   // Private answer feed (only the verifier ever receives this).
   useEffect(() => {
@@ -127,6 +129,22 @@ export default function Beopardy({ socket, me, members, game }: GameProps) {
     if (!key) return "?";
     return players[key]?.name ?? key;
   }
+
+  useEffect(() => {
+    if (prevPhase.current !== phase) {
+      if (phase === "board" && prevPhase.current === "setup") {
+        track("beopardy_game_started", { pack_title: g.packTitle, player_count: playerList.length });
+      }
+      if (phase === "gameover") {
+        track("beopardy_game_completed", {
+          winner: playerList[0]?.name,
+          top_score: playerList[0]?.score,
+          player_count: playerList.length,
+        });
+      }
+      prevPhase.current = phase;
+    }
+  }, [phase, g.packTitle, playerList]);
 
   // ---- Shared chrome -----------------------------------------------------
 
@@ -180,13 +198,19 @@ export default function Beopardy({ socket, me, members, game }: GameProps) {
           {(phase === "judging" || phase === "dd_judging") && (
             <div className="mt-4 flex justify-center gap-3">
               <button
-                onClick={() => socket.emit("beopardy:judge", { correct: true })}
+                onClick={() => {
+                track("beopardy_answer_judged", { correct: true });
+                socket.emit("beopardy:judge", { correct: true });
+              }}
                 className="rounded-xl bg-emerald-500/80 px-6 py-3 font-black uppercase transition hover:bg-emerald-500"
               >
                 Correct
               </button>
               <button
-                onClick={() => socket.emit("beopardy:judge", { correct: false })}
+                onClick={() => {
+                track("beopardy_answer_judged", { correct: false });
+                socket.emit("beopardy:judge", { correct: false });
+              }}
                 className="rounded-xl bg-rose-500/80 px-6 py-3 font-black uppercase transition hover:bg-rose-500"
               >
                 Wrong
@@ -274,7 +298,10 @@ export default function Beopardy({ socket, me, members, game }: GameProps) {
                 <button
                   key={ri}
                   disabled={cell.used || !(isController || isHost)}
-                  onClick={() => socket.emit("beopardy:select", { cat: ci, row: ri })}
+                  onClick={() => {
+                    track("beopardy_clue_selected", { cat: ci, row: ri, value: cell.value });
+                    socket.emit("beopardy:select", { cat: ci, row: ri });
+                  }}
                   className={`min-h-12 rounded-lg border text-base font-black sm:min-h-14 sm:text-xl ${
                     cell.used
                       ? "border-white/5 bg-white/[0.02] text-transparent"
@@ -321,6 +348,7 @@ export default function Beopardy({ socket, me, members, game }: GameProps) {
               <button
                 onClick={() => {
                   playBuzz();
+                  track("beopardy_buzzed_in");
                   socket.emit("beopardy:buzz");
                 }}
                 className="h-28 w-28 touch-manipulation rounded-full border-4 border-rose-300/60 bg-gradient-to-br from-rose-500 to-red-600 text-xl font-black uppercase tracking-wide shadow-2xl shadow-rose-900/50 transition active:scale-90 sm:h-32 sm:w-32"
@@ -389,14 +417,20 @@ export default function Beopardy({ socket, me, members, game }: GameProps) {
                     className="w-full flex-1 rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-center text-xl font-bold outline-none focus:border-amber-400/60"
                   />
                   <button
-                    onClick={() => socket.emit("beopardy:wager", { amount: Number(wagerInput) })}
+                    onClick={() => {
+                      track("beopardy_dd_wager_submitted", { amount: Number(wagerInput) });
+                      socket.emit("beopardy:wager", { amount: Number(wagerInput) });
+                    }}
                     className="rounded-xl bg-amber-500 px-5 py-3 font-black uppercase text-black transition hover:bg-amber-400"
                   >
                     Wager
                   </button>
                 </div>
                 <button
-                  onClick={() => socket.emit("beopardy:wager", { amount: maxWager })}
+                  onClick={() => {
+                    track("beopardy_dd_wager_submitted", { amount: maxWager });
+                    socket.emit("beopardy:wager", { amount: maxWager });
+                  }}
                   className="mt-2 text-sm text-amber-300/70 underline-offset-2 hover:underline"
                 >
                   True Daily Double — all in (${maxWager.toLocaleString()})

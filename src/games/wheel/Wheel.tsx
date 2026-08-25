@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { GameProps } from "../registry";
 import type { Member } from "@/lib/socket";
+import { track } from "@/lib/analytics";
 
 const COLORS = [
   "#7c5cff",
@@ -37,6 +38,7 @@ export default function Wheel({ socket, me, members, game }: GameProps) {
     function onResult(payload: { winner: Member }) {
       setSpinning(false);
       setWinner(payload.winner);
+      track("wheel_result", { winner_is_me: payload.winner.id === socket.id });
     }
     socket.on("wheel:spin", onSpin);
     socket.on("wheel:result", onResult);
@@ -112,7 +114,10 @@ export default function Wheel({ socket, me, members, game }: GameProps) {
       </div>
 
       <button
-        onClick={() => socket.emit("wheel:spin")}
+        onClick={() => {
+          track("wheel_spun", { player_count: members.length });
+          socket.emit("wheel:spin");
+        }}
         disabled={!canSpin}
         className="rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 px-10 py-4 text-lg font-black uppercase tracking-wide shadow-lg shadow-violet-900/40 transition enabled:hover:scale-105 enabled:active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
       >
