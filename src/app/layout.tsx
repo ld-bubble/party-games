@@ -12,7 +12,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <script dangerouslySetInnerHTML={{ __html: `
+  try {
+    var t = localStorage.getItem('party-games:theme');
+    if (t && t !== 'dark') document.documentElement.dataset.theme = t;
+  } catch(e) {}
+` }} />
       <body className="font-sans antialiased">{children}</body>
     </html>
   );

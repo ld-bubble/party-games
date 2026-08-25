@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { GAMES } from "@/games/catalog";
 import { makeRoomCode } from "@/lib/code";
@@ -8,6 +8,25 @@ import { makeRoomCode } from "@/lib/code";
 export default function Home() {
   const router = useRouter();
   const [joinCode, setJoinCode] = useState("");
+
+  const THEME_KEY = 'party-games:theme';
+  type Theme = 'dark' | 'light' | 'disco';
+  const [theme, setTheme] = useState<Theme>('dark');
+
+  useEffect(() => {
+    const saved = localStorage.getItem(THEME_KEY) as Theme | null;
+    if (saved) applyTheme(saved);
+  }, []);
+
+  function applyTheme(t: Theme) {
+    setTheme(t);
+    localStorage.setItem(THEME_KEY, t);
+    if (t === 'dark') {
+      delete document.documentElement.dataset.theme;
+    } else {
+      document.documentElement.dataset.theme = t;
+    }
+  }
 
   function startGame(gameId: string) {
     const code = makeRoomCode();
@@ -22,6 +41,22 @@ export default function Home() {
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-14">
+      <div className="fixed top-4 right-4 z-50 flex gap-1 rounded-full border border-white/10 bg-black/30 p-1 backdrop-blur">
+        {[
+          { id: 'dark',  label: '🌑', title: 'Dark mode' },
+          { id: 'light', label: '☀️', title: 'Light mode' },
+          { id: 'disco', label: '🪩', title: 'Party disco!' },
+        ].map(({ id, label, title }) => (
+          <button
+            key={id}
+            title={title}
+            onClick={() => applyTheme(id as Theme)}
+            className={`rounded-full px-3 py-1.5 text-sm transition ${theme === id ? 'bg-white/20 shadow-inner' : 'hover:bg-white/10'}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       <header className="mb-12 text-center">
         <div className="mb-3 inline-flex animate-float items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-sm text-violet-200">
           🎲 play together, instantly

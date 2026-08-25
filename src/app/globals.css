@@ -22,6 +22,29 @@ body {
   min-height: 100vh;
 }
 
+/* ── Light theme ── */
+[data-theme="light"] body {
+  color: #2d1b69;
+  background:
+    radial-gradient(1200px 600px at 80% -10%, rgba(124, 92, 255, 0.10), transparent 60%),
+    radial-gradient(900px 500px at 0% 110%, rgba(255, 122, 89, 0.08), transparent 55%),
+    #f8f5ff;
+}
+
+/* ── Disco theme ── */
+@keyframes disco-bg {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+[data-theme="disco"] body {
+  background: linear-gradient(270deg, #ff0080, #ff8c00, #ffee00, #40e0d0, #7928ca, #ff0080);
+  background-size: 400% 400%;
+  animation: disco-bg 4s ease infinite;
+  color: #fff;
+}
+
 * {
   box-sizing: border-box;
 }
