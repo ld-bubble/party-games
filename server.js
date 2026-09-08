@@ -1,5 +1,6 @@
 // Custom server: runs Next.js and attaches a Socket.IO real-time layer.
 // Game-specific socket handlers live in ./server/games and are wired in per room.
+//hello world.
 const { createServer } = require("http");
 const next = require("next");
 const { Server } = require("socket.io");

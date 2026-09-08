@@ -8,11 +8,16 @@ function init(room) {
   if (typeof room.game.rotation !== "number") room.game.rotation = 0;
   if (typeof room.game.spinning !== "boolean") room.game.spinning = false;
   if (!("winner" in room.game)) room.game.winner = null;
+  if (!Array.isArray(room.game.customEntries)) room.game.customEntries = [];
+  if (!Array.isArray(room.game.selectionHistory)) room.game.selectionHistory = [];
 }
 
-function register(io, socket, { room }) {
+function register(io, socket, { room, broadcastState }) {
   socket.on("wheel:spin", () => {
-    const members = [...room.members.values()];
+    const members = [
+      ...[...room.members.values()],
+      ...room.game.customEntries,
+    ];
     if (members.length < 2 || room.game.spinning) return;
 
     const n = members.length;
@@ -43,6 +48,7 @@ function register(io, socket, { room }) {
       if (!room.members) return;
       room.game.spinning = false;
       room.game.winner = winner;
+      room.game.selectionHistory.unshift({ id: winner.id, name: winner.name });
       io.to(room.code).emit("wheel:result", { winner });
       io.to(room.code).emit("room:state", {
         code: room.code,
@@ -51,6 +57,22 @@ function register(io, socket, { room }) {
         game: room.game,
       });
     }, SPIN_DURATION_MS + 150);
+  });
+
+  socket.on("wheel:add-entry", ({ name } = {}) => {
+    const trimmed = String(name || "").trim().slice(0, 40);
+    if (!trimmed) return;
+    const already = room.game.customEntries.some(
+      (e) => e.name.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (already) return;
+    room.game.customEntries.push({ id: `custom-${Date.now()}-${Math.random()}`, name: trimmed });
+    broadcastState();
+  });
+
+  socket.on("wheel:remove-entry", ({ id } = {}) => {
+    room.game.customEntries = room.game.customEntries.filter((e) => e.id !== id);
+    broadcastState();
   });
 }
 

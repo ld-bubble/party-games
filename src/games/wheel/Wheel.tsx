@@ -24,6 +24,7 @@ export default function Wheel({ socket, me, members, game }: GameProps) {
   const [winner, setWinner] = useState<Member | null>(
     (game.winner as Member) || null,
   );
+  const [newName, setNewName] = useState("");
 
   // Real-time spin events from the server. Every client receives the same final
   // rotation, so the animation and result are identical everywhere.
@@ -56,19 +57,34 @@ export default function Wheel({ socket, me, members, game }: GameProps) {
     setWinner((game.winner as Member) || null);
   }, [game.rotation, game.winner, spinning]);
 
-  const n = members.length;
+  const customEntries = Array.isArray(game.customEntries)
+    ? (game.customEntries as { id: string; name: string }[])
+    : [];
+  const selectionHistory = Array.isArray(game.selectionHistory)
+    ? (game.selectionHistory as { id: string; name: string }[])
+    : [];
+  const entries: { id: string; name: string }[] = [...members, ...customEntries];
+
+  const n = entries.length;
   const seg = n > 0 ? 360 / n : 360;
   const canSpin = n >= 2 && !spinning;
 
   const gradient =
     n === 0
       ? "#2a2640"
-      : `conic-gradient(from 0deg, ${members
+      : `conic-gradient(from 0deg, ${entries
           .map((_, i) => {
             const c = COLORS[i % COLORS.length];
             return `${c} ${i * seg}deg ${(i + 1) * seg}deg`;
           })
           .join(", ")})`;
+
+  function handleAdd() {
+    const trimmed = newName.trim();
+    if (!trimmed) return;
+    socket.emit("wheel:add-entry", { name: trimmed });
+    setNewName("");
+  }
 
   return (
     <div className="flex flex-col items-center gap-8">
@@ -89,17 +105,17 @@ export default function Wheel({ socket, me, members, game }: GameProps) {
               : "none",
           }}
         >
-          {members.map((m, i) => {
+          {entries.map((m, i) => {
             const center = i * seg + seg / 2;
             return (
               <div
                 key={m.id}
-                className="absolute left-1/2 top-1/2 origin-left"
+                className="absolute left-1/2 top-1/2 origin-left w-[120px]"
                 style={{
-                  transform: `rotate(${center}deg) translateX(8px)`,
+                  transform: `rotate(${center}deg) translateX(28px)`,
                 }}
               >
-                <span className="block max-w-[150px] truncate text-sm font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
+                <span className="block truncate text-right text-sm font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
                   {m.name}
                 </span>
               </div>
@@ -122,7 +138,7 @@ export default function Wheel({ socket, me, members, game }: GameProps) {
       <div className="h-12 text-center">
         {n < 2 && (
           <p className="text-violet-100/50">
-            Waiting for at least 2 players to join…
+            Waiting for at least 2 entries…
           </p>
         )}
         {winner && !spinning && (
@@ -135,6 +151,74 @@ export default function Wheel({ socket, me, members, game }: GameProps) {
           </p>
         )}
       </div>
+
+      {/* Custom entry management */}
+      <div className="w-full max-w-sm rounded-xl border border-white/10 bg-white/5 p-4">
+        <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-violet-100/50">
+          Add names
+        </p>
+        <form
+          onSubmit={(e) => { e.preventDefault(); handleAdd(); }}
+          className="flex gap-2"
+        >
+          <input
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="Add a name…"
+            maxLength={40}
+            className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none focus:border-violet-400/50 focus:bg-white/10"
+          />
+          <button
+            type="submit"
+            disabled={!newName.trim()}
+            className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold transition enabled:hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Add
+          </button>
+        </form>
+
+        {customEntries.length > 0 && (
+          <ul className="mt-3 flex flex-col gap-1">
+            {customEntries.map((entry) => (
+              <li
+                key={entry.id}
+                className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-1.5 text-sm"
+              >
+                <span>{entry.name}</span>
+                <button
+                  onClick={() => socket.emit("wheel:remove-entry", { id: entry.id })}
+                  className="ml-2 text-violet-100/40 transition hover:text-violet-100/80"
+                  aria-label={`Remove ${entry.name}`}
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Selection history ledger */}
+      {selectionHistory.length > 0 && (
+        <div className="w-full max-w-sm rounded-xl border border-white/10 bg-white/5 p-4">
+          <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-violet-100/50">
+            Selected
+          </p>
+          <ol className="flex flex-col gap-1">
+            {selectionHistory.map((entry, i) => (
+              <li
+                key={`${entry.id}-${i}`}
+                className="flex items-center gap-2 rounded-lg bg-white/5 px-3 py-1.5 text-sm"
+              >
+                <span className="w-5 shrink-0 text-right text-violet-100/30 text-xs">
+                  {i + 1}
+                </span>
+                <span className="font-medium">{entry.name}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
     </div>
   );
 }
